@@ -1,0 +1,490 @@
+---
+title: "Examining the Effectiveness of the Drug Policy and the General Characteristics of Drug Abuse in Hong Kong via Data Visualization "
+author: |
+  | Poh, Joanne Hui Min & Sun, Justin Jiaze
+  | The University of Hong Kong
+institute: HKU
+date: "December 2016"
+output: 
+  html_document:
+    fig_caption: yes
+    number_sections: yes
+    theme: paper
+    toc: yes
+    toc_depth: 2
+bibliography: bib.bib
+abstract: The fight against drug abuse is an ongoing one in many countries around the globe, with some countries trying to reduce supply of illegal drugs by imposing harsh penalties on drug abusers and traffickers, and other countries attempting to reduce harm by legalizing certain drugs so that they can be regulated by the government, as well as providing rehabilitation programs for addicts. This study focuses on the drug abuse situation in Hong Kong due to its unique approach on drug policy, which is to achieve a balance between supply reduction and harm reduction. Using the techniques of plotting streamgraphs and maps in R, this project shall proceed to assess the effectiveness of Hong Kong's drug policy and explore the general characteristics of drug abusers in Hong Kong. The study eventually found stong evidence to suggest that the drug policy in Hong Kong has been effective in the last two decades. The drug abusers exhibit characteristics such as relatively low levels of education and high unemployment rate; there are also revealing geographical features of the distribution of drug abusers, such as most drug abusers are concentrated in districts like Yau Tsim Mong, most young drug abusers are distributed on the outskirts of Hong Kong, and so on.
+---
+<style>
+  body {font-size: 12pt; }
+</style>
+
+```{r setup, include=FALSE}
+options(width=100)
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, fig.align = "center")
+library(sp)
+library(shiny)
+library(ggplot2)
+library(plotly)
+library(reshape2)
+library(dplyr)
+#library(streamgraph)
+library(viridis)
+library(gridExtra)
+
+hk_drug_map <- read.csv("hk_drug_map.csv")
+
+tt1 = read.csv("Types2.csv")
+all <- read.csv("All.csv")
+gender <- read.csv("Gender.csv")
+age <- read.csv("Age.csv")
+first <- read.csv("First.csv")
+edu <- read.csv("Edu.csv")
+occup <- read.csv("Occup.csv")
+multi <- read.csv("multidrug.csv")
+
+tt2 = melt(tt1, id.vars = "Drugs")
+allmelt <- melt(all, id.vars = "Year")
+gendermelt <- melt(gender, id.vars = "Year")
+agemelt <- melt(age, id.vars = "Year")
+firstmelt <- melt(first, id.vars = "Year")
+edumelt <- melt(edu, id.vars = "Year")
+occupmelt <- melt(occup, id.vars = "Year")
+multimelt <- melt(multi, id.vars = "Year")
+
+colnames(tt2) <- c("Drug_Types", "Year", "Users")
+colnames(allmelt) <- c("Total", "Year", "Abusers")
+colnames(gendermelt) <- c("Gender", "Year", "Abusers")
+colnames(agemelt) <- c("Age", "Year", "Abusers")
+colnames(firstmelt) <- c("First", "Year", "Abusers")
+colnames(edumelt) <- c("Edu", "Year", "Abusers")
+colnames(occupmelt) <- c("Occup", "Year", "Abusers")
+colnames(multimelt) <- c("multi", "Year", "Abusers")
+
+tt2$Year <- gsub("X", "", tt2$Year)
+allmelt$Year <- gsub("X", "", allmelt$Year)
+gendermelt$Year <- gsub("X", "", gendermelt$Year)
+agemelt$Year <- gsub("X", "", agemelt$Year)
+firstmelt$Year <- gsub("X", "", firstmelt$Year)
+edumelt$Year <- gsub("X", "", edumelt$Year)
+occupmelt$Year <- gsub("X", "", occupmelt$Year)
+multimelt$Year <- gsub("X", "", multimelt$Year)
+```
+
+# Introduction
+
+## Drug Abuse: A Global Perspective
+
+In 2014, it was estimated that 1 in every 20 adults in the world used at least one type of drug, among which approximately 29 million people were suffering from disorders related to drug use, and roughly 207,400 people died due to overdose or other drug-related causes [@un2016]. The detrimental effect of drug abuse, however, extends far beyond merely the drug-related deaths. Millions of people are living with hepatitis C, HIV or other blood-borne diseases because of unsterilized injections. Taking the US as an example, billions of dollars is spent on drug-related prosecutions and rehabilitations every year, and businesses also suffer considerable loss due to drug abuse in the labour force [@whitehouse].
+
+Recognizing these severe consequences, most governments around the globe have established a system to combat drug abuse. Their methods, however, tend to differ significantly. In general, there are two main approaches towards the war on drugs, namely supply reduction and harm reduction. The former strategy, which is a traditional one used by countries like China and Singapore, is to impose harsh penalties to deter people from using drugs; the latter, adopted by countries like Portugal, is to decriminalize the use of drugs so that they can be regulated by the government. Both approaches, however, are not without controversy. For instance, the harsh penalties in China do not seem to be very effective [@chinadrug], while the decriminalization of marijuana has seen an increasing regional usage in North America and Europe [@un2016].
+
+## Drug and Hong Kong
+
+Drug played an important role in the history of Hong Kong, which was ceded to the British Empire as a result of The First Opium war in 1842. Due to political and economic reasons, Britain legalized the use of opium, which was later used to make heroin. With the encouragement from the British authorities that trickled down to the corruption among British and Chinese police officers who worked closely with the drug cartels, the drug trade flourished. By the 1970s, Hong Kong became Asia's heroin laboratory, establishing the network of international drug cartels in Hong Kong. Moreover, Hong Kong is also bordered by China's southern and south eastern provinces such as Guangdong where drug crimes are concentrated, not to mention that China is one of the major sources of chemicals for the production of MDMA, crystal meth and heroin. It is also situated close to another drug producing area in South East Asia known as the Golden Triangle. As an important trading port, its coastal position makes it a prime location for drug trade. Together with the economic conditions in Hong Kong as one of Asia's financial hubs, the large amount of financial transactions make it easy for money laundering for drug cartels [@ismi1997].
+
+Given the Hong Kong's history with drug trading, we are interested in finding out how Hong Kong is coping with the problem of drug abuse, as well as the general trend and characteristics of the drug abusers in the city. As mentioned above, supply reduction and harm reduction are the two mainstream approaches, but Hong Kong is unique in that its drug policy is a hybrid of the two. On the one hand, drug dealers and abusers are subject to severe punishment under the law; on the other hand, there is no death penalty, and it provides treatment and rehabilitation options and medication assisted therapy programs, allowing drug addicts to avoid the uncomfortable withdrawal symptoms and begin their first step to social rehabilitation [@hkpolice]. Hence, by examining the effectiveness of Hong Kong's drug policy as well as the general characteristics of the drug abusers, it helps to raise the public awareness of the severity of the issue, and people might also gain some insights into developing more successful policies in the future. 
+
+## Objectives
+
+The main objective of this project is to assess the effectiveness of Hong Kong's drug policy, and explore the characteristics of the drug abusers in Hong Kong by means of data visulization. According to The Narcotics Division under the Security Bureau of the Hong Kong Government, a drug abuser is defined as "a person who has taken any kind of substances which harms or threatens to harm the physical or mental health or social well-being of an individual, in doses above or for periods beyond those normally regarded as therapeutic in the last four weeks, irrespective of the number of takings". The Narcotics Division also publishes annual reports on the drug abuse situation in Hong Kong, which give general discriptive statistics of the drug abusers who are reported to the division by various agencies. The reports, however, provide only the most basic types of graphics, such as bar charts, line charts, and various statistical tables. These visualizations not only appear as static and dull to the general public, but are also extremely limited in functionality. This project will attempt to improve this by making the data-viewing process dynamic and interactive, in the hope that it might provide more insights into the drug abuse problem.
+
+## Structure of Report
+
+Immediately following this section, the report will describe the data collection and manipulation process in detail. It will then proceed to discuss the visualization methods used in the project. Afterwards, we will show the results from the visualization and give a detailed discussion regarding the patterns and trends. Finally, we will give a summary and raise questions for future studies.
+
+# Data
+
+There are two components in our Shiny app, namely a series of streamgraphs, and a geographical map. The details shall be discussed in a later section. For simplicity, the manipulation of the datasets for these two components are carried out separately.
+
+## Streamgraph
+
+The data was extracted from the website of the Narcotics Division under the Security Bureau of the Government of the Hong Kong Special Administrative Region [@narcoticsdiv]. The website provides a customizable statistical table for visitors to view drug-related data according to various sorting options. The figure below is a screenshot of the table, where the option "2006-2015" and "All reported persons" are selected.
+
+<center>![](/home/3035096125/Drug_abuse_in_Hong_Kong/web.jpg)</center>
+
+By clicking "Enquire" on the bottom right corner, the following table is produced.
+
+<center>![](/home/3035096125/Drug_abuse_in_Hong_Kong/web1.jpg)</center>
+
+The unique aspect of this database is that it provides many insightful variables, such as common types of drug, age of first abuse, educational attainment, activity status, district of residence, whether taking more than one type of drug, and so forth. The data can be downloaded via an XLS format, which can then be opened in Excel for manipulation. In this project, a thirty-year period of data was extracted from the website, and saved into different CSV files according to the variable of interest, where the columns represent different years, and the rows represent subgroups of the variable. As an example, the dataset *Edu.csv* is shown below.
+
+<center>
+```{r fig1}
+edu <- read.csv("Edu.csv")
+edu
+```
+</center>
+
+In order to create a streamgraph, the data must be transformed into a proper format, and the R Package *reshape2* was used to achieve this, as shown below.
+
+<center>
+```{r fig2}
+edumelt <- melt(edu, id.vars = "Year")
+colnames(edumelt) <- c("Edu", "Year", "Abusers")
+edumelt$Year <- gsub("X", "", edumelt$Year)
+head(edumelt)
+```
+</center>
+
+Similarly, this transformation was performed for every other variable involved in the streamgraphs.
+
+## Geographical Map
+
+The data used for the map consists of three parts. The first part is a portion of the data used for the streamgraph, namely the number of drug abusers sorted by gender and age, except these variables are now further sorted by the 18 districts instead of taking Hong Kong as a whole. The second part is a twenty-year period Hong Kong population statistics, retrieved from the website of the Census and Statistics Department of the Hong Kong Government. The data contains the population sorted by the 18 districts of Hong Kong from 1996 to 2015. The purpose of this dataset is for us to study the proportion of drug abusers in the total population, which is a more accurate measure of the real situation than the absolute number of drug abusers. The last part for the map is an R spatial polygon dataframe of Hong Kong retrieved from the GADM database of Global Administrative Areas. Since we would like to examine the geographical features of the drug abusers, this dataset is of utter important in our visualization. The first few rows of the dataframe is shown below.
+
+<center>
+```{r fig3}
+head(fortify(readRDS("HKG_adm1.rds")))
+```
+</center>
+
+In order to visualize the drug data on the map, we combined this spatial polygon dataframe with the data from the Narcotics Division's website. The latter is integrated into a single file, with different columns representing different years and variables, and one column of the district codes which serves as an BY variable so that it can be successfully merged with the map dataframe, thus producing one final integrated file named *hk_drug_map.csv* used to produce the map.
+
+# Methodology 
+
+Our web application is built with *Shiny*, an R package that allows developers to construct interactive and dynamic user interfaces. There are two tabs in the web application: time series streamgraphs and a geographical map, created using the packages *Streamgraph* and *ggplot2* respectively. Other packages used in this project include *sp*, *reshape2*, *dplyr*, and *viridis*.
+
+## Streamgraph
+
+A screenshot of the time series streamgraphs tab is shown below.
+
+<center>![](/home/3035096125/Drug_abuse_in_Hong_Kong/stream.jpg)</center>
+
+The interactive html widget we chose to present our data is the streamgraph package which can be downloaded from Github. Streamgraphs are basically area graphs with or without a base line. It creates graphics which are visually appealing with the smoothed elegant lines that rise and ebb fluidly depending on the value of the data. It is excellent of observing general trends over time, for a large number of variables. The usage of streamgraphs is fairly new, but has been increasingly adopted by many mass media outlets. It can sometimes be difficult to detect the small changes between layers, thus a legend is provided on the top left corner of the graph to show the actual value at a chosen point. This package also allows us to create area graphs with a baseline, which most people are more familiar with, as well as a graphical representation of variables in percentage in the whole area [@stream; @lee]. 
+
+This form of representation is fascinating because streamgraphs are aesthetically engaging. It has the potential to convey large amount of data not only for the use of academic papers, but also to the mass public. This is especially important because the data set we were working on concerns the social welfare of the people. We may be able to raise awareness of the drug trends and educate people in Hong Kong by reaching out to the public with engaging graphics.  
+
+## Geographical Map
+
+A screenshot of the geographical map tab is shown below.
+
+<center>![](/home/3035096125/Drug_abuse_in_Hong_Kong/map.jpg)</center>
+
+Using a map proves to be a very innovative way to visualize the drug abuse situation in Hong Kong, as it has rarely or never been done by the government or other parties, despite that three decades of drug abuse data, sorted by districts, is made readily available to the general public by the government. Moreover, since there has been very little research on the geographical characteristics of the drug abusers in Hong Kong, this particular visualization approach provides a fresh and interesting opening for future studies to be conducted. In this study, the map is used to present four variables of interest: the total number, gender, age, and the most common drug type. The last variable is defined as the drug type having the highest number of abusers in a specific district, or in other words, the most prevalent drug type in a district. 
+
+The map is drawn using *ggplot2*, a very powerful and elegant graph plotting package, and made interactive by *plotly*. As a result, not only can the audience acquire general information from the graph themselves, they can also view specific data points by hovering their mouse over a particular district. For example, if the audience would like to know the number of reported drug abusers in 1996 in the Tsuen Wan District, one can simply do this by selecting "All Drug Abusers" from "Select Sorting Method" on the side panel and hovering the mouse over the Tsuen Wan District, giving the result of 1009 (as shown in the screenshot above).
+
+There are three things the audience should bear in mind when viewing these maps. 
+
+First and foremost, the map only takes into account those drug abusers who take residence within Hong Kong and thus might not reflect the real drug abuse situation. However, it can be ignored in this case because the main purpose of the map is not to show those living outside Hong Kong, and in fact, the vast majority of drug abusers in Hong Kong (approximately 95% of all abusers) take residence in Hong Kong. 
+
+Secondly, if the option "Show Density Instead" --- which appears only when "All Drug Abusers" is selected as the sorting method --- is checked, the color intensity on the map will then be calculated by the proportion of drug abusers, i.e. the ratio of drug abusers to the total population in each individual district. This option offers a more accurate perspective to view the prevalence of drug abuse in each district, as some districts house more drug abusers simply due to the fact that they have much larger populations. 
+
+Lastly, for the variables age and gender, there is a radio button option to show the "log ratio" between the two subgroups of each of these two variables. For gender, it is defined as taking the natural logarithm of the ratio of the male drug abusers to the female ones; for age, similarly, it is the natural logarithm of the ratio of those under the age of 21 to those aged 21 or above. Taking the ratio provides a means to put the two subgroups onto the same map rather than having to separate them. However, this creates two unequal intervals of comparison. For instance, if we look at the gender, a ratio in the interval $[0,1)$ implies there are more female drug abusers than male ones, while the interval $(1,\infty)$ implies there are more male drug abusers. Therefore, taking natural logarithm will change each interval into $(-\infty, 0)$ and $(0,\infty)$ respectively, and thus the color schemes can be applied without causing confusion or misleading effects.
+
+# Results
+
+## Streamgraph
+
+### Overall trend
+
+From the streamgraph below, one can clearly observe that there is a downward trend of reported drug abusers in Hong Kong. It reached its peak of 20328 in 1994, after which there has been a steadily decreasing overall trend, with occasional spikes in some places (the graph is made interactive, so one can hover their mouse over the chart to get the exact numbers). In 2015, the total number reached its lowest level in the last 30 years, at 8598. This is serves as a strong evidence for the success of Hong Kong's drug policy in the recent decade.
+
+```{r s1, fig.width=9, echo=FALSE}
+streamgraph(allmelt, "Total", "Abusers", "Year", interpolate="cardinal", offset="zero") %>%
+          sg_axis_x(2) %>%
+          sg_fill_manual("black")
+```
+
+### Common types of drugs
+
+```{r s2, fig.width=9, echo=FALSE}
+streamgraph(tt2, "Drug_Types", "Users", "Year", interpolate="cardinal", offset="wiggle") %>%
+          sg_axis_x(2) %>%
+          sg_fill_manual(magma(11))
+```
+
+The above figure shows the prevalence of each type of drug among the reported abusers over the last thirty years (again, one can see what each band represents by hovering the mouse over a particular one). As illustrated by the graph, heroin was the predominant drug type in Hong Kong before 1994, after which its influence began to subside, while more psychotropic drug types started to take over. As previously mentioned, it can be difficult to observe the small differences between different layers. But using the percentage of the whole graph as shown below, we can easily identify the most prevalent drugs at any time point. Despite that the usage of heroin has decreased drastically, it is still among the top 3 most used drugs in Hong Kong, together with methamphetamine and ketamine.
+
+```{r s3, fig.width=9, echo=FALSE}
+streamgraph(tt2, "Drug_Types", "Users", "Year", interpolate="cardinal", offset="expand") %>%
+          sg_axis_x(2) %>%
+          sg_fill_manual(magma(11))
+```
+
+It is particularly interesting to understand the historical context behind the dominance of heroin in the 80’s and its subsequent decline, which gave way to other new types of psychotropic drugs, such as the rise of ketamine and ecstasy because of the arrival of rave dance culture in late 90s. Ecstasy enjoyed a brief "popularity" and slowly wound down in terms of usage. Ketamine remained consistent over the years, and methamphetamine has become more and more prevalent in recent years. As stated in the app, the height of the stream does not necessarily represent the total number of drug abusers, since some abusers may take multiple drugs at the same time (see the graph below). This also explains why the height of the stream at 2015 looks about the same as the height at 1986, even though there were far less drug abusers in 2015 than 1986.
+
+```{r s4, fig.width=9, echo=FALSE}
+streamgraph(multimelt, "multi", "Abusers", "Year", interpolate="cardinal", offset="zero") %>%
+          sg_axis_x(2) %>%
+          sg_fill_manual(c("royalblue", "darkorange"))
+```
+
+### Other observations
+
+Despite that the total number of abusers has varied significantly over the years, the proportion of female drug abusers, however, has slightly increased, as illustrated below.
+
+```{r s5, fig.width=9, echo=FALSE}
+streamgraph(gendermelt, "Gender", "Abusers", "Year", interpolate="cardinal", offset="expand") %>%
+          sg_axis_x(2) %>%
+          sg_fill_manual(c("hotpink", "deepskyblue"))
+```
+
+We can also observe the more users are coming into contact with drugs at a younger age. The following graph shows the age of first abuse. Overtime, the area representing 15 years old and under as first contact with drug increases while the other age group remain relatively constant. 
+
+```{r s6, fig.width=9, echo=FALSE}
+streamgraph(firstmelt, "First", "Abusers", "Year", interpolate="cardinal", offset="expand") %>%
+          sg_axis_x(2) %>%
+          sg_fill_manual(viridis(7))
+```
+
+Another interesting but not unexpected result comes from examining the educational attainment of the reported drug abusers (shown below). The vast majority of drug abusers do not have a tertiary level education, with the most drug abusers having only obtained a lower secondary level. 
+
+```{r s7, fig.width=9, echo=FALSE}
+streamgraph(edumelt, "Edu", "Abusers", "Year", interpolate="cardinal", offset="wiggle") %>%
+          sg_axis_x(2) %>%
+          sg_fill_manual(plasma(5))
+```
+
+There is also a very high unemployment rate among the reported drug abusers, with appoximately half of them being unemployed at the time of being reported (shown below). For comparison, the unemployment rate in Hong Kong currently 3.4% [@labour].
+
+```{r s8, fig.width=9, echo=FALSE}
+streamgraph(occupmelt, "Occup", "Abusers", "Year", interpolate="cardinal", offset="wiggle") %>%
+          sg_axis_x(2) %>%
+          sg_fill_tableau("tableau20")
+```
+
+## Geographical Map
+
+### All drug abusers
+
+The maps below shows the total number of drug abusers in each district. One can observe there are significant variations across different districts of Hong Kong. For example, in 1996, districts such as Kwun Tong, Yau Tsim Mong, Wong Tai Sin, and Sham Shui Po housed most of the drug abusers, while Islands and Sai Kung had the fewest. In particular, Kwun Tong had the highest number of drug abusers, at 2294; whereas the Islands had the lowest number, at 182. As time passes by, while the districts with the most drug abusers remain roughly unchanged, those with the fewest have since changed to districts such as Central & Western and Wan Chai. In fact, the number of drug abusers in the Islands has somewhat increased during the 2000s. Additionally, one can also see that the overall color gets more and more green overtime, indicating a steady decline in the total number of drug abusers, which is already evidenced by the streamgraphs in the previous section.
+
+```{r fig5, fig.width=10, fig.height=7, echo=FALSE}
+p1=ggplot(hk_drug_map, aes(long, lat, group=group)) +
+           geom_polygon(aes(fill=hk_drug_map[,7])) + 
+           scale_fill_gradient(name="", limits=c(0, 2300), low="springgreen", high="black") + 
+           ggtitle("Total Number of Abusers 1996") + 
+           xlab("") + 
+           ylab("") +
+           theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())+
+           coord_fixed()
+p2=ggplot(hk_drug_map, aes(long, lat, group=group)) +
+           geom_polygon(aes(fill=hk_drug_map[,13])) + 
+           scale_fill_gradient(name="", limits=c(0, 2300), low="springgreen", high="black") + 
+           ggtitle("Total Number of Abusers 2002") + 
+           xlab("") + 
+           ylab("") +
+           theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())+
+           coord_fixed()
+p3=ggplot(hk_drug_map, aes(long, lat, group=group)) +
+           geom_polygon(aes(fill=hk_drug_map[,19])) + 
+           scale_fill_gradient(name="", limits=c(0, 2300), low="springgreen", high="black") + 
+           ggtitle("Total Number of Abusers 2008") + 
+           xlab("") + 
+           ylab("") +
+           theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())+
+           coord_fixed()
+p4=ggplot(hk_drug_map, aes(long, lat, group=group)) +
+           geom_polygon(aes(fill=hk_drug_map[,26])) + 
+           scale_fill_gradient(name="", limits=c(0, 2300), low="springgreen", high="black") + 
+           ggtitle("Total Number of Abusers 2015") + 
+           xlab("") + 
+           ylab("") +
+           theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())+
+           coord_fixed()
+grid.arrange(p1, p2, p3, p4, nrow=2, ncol=2)
+```
+
+Instead of looking at the absolute number of drug abusers, a more interesting perspective can be gained by examining their proportion in each district population. Again, taking 1996 as an example (shown below), the proportions of drug abusers across different districts range from approximately 0.14% to 0.65%. Despite the fact that Kwun Tong had the highest number of drug abusers, it is Yau Tsim Mong that has the highest proportion, or in other words, density, of drug abusers. This is because the former district had a much larger population than that of the latter. Similarly, it was observed that the Yau Tsim Mong and Sham Shui Po had the highest density in almost all subsequent years.
+
+```{r fig4, fig.width=9, fig.height=11, echo=FALSE}
+p1=ggplot(hk_drug_map, aes(long, lat, group=group)) +
+           geom_polygon(aes(fill=hk_drug_map[,7])) + 
+           scale_fill_gradient(name="", limits=c(0, 2300), low="springgreen", high="black") + 
+           ggtitle("Total Number of Reported Drug Abusers by District in 1996") + 
+           xlab("") +
+           ylab("") +
+           coord_fixed()
+p2=ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,27])) +
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(0, 0.65), low="springgreen", high="black") + 
+          ggtitle("Percentage of Reported Drug Abusers in the Total Population by District in 1996 (%)") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed()
+grid.arrange(p1, p2, nrow=2, ncol=1)
+```
+
+### Gender
+
+The maps below show the proportions of male and female abusers among all reported abusers. In general, the proportion of male drug abusers in all drug abusers far exceeds that of the female ones, with the former ranging anywhere from 70% to 95%, and latter from roughly 5% to 30%. It is difficult to observe a general pattern in the gender distribution, as it keeps varying across different periods of time. However, there is a slight increase in the proportion of female drug abusers over the last two decades, as manifested in the increasing color intensity of female drug abusers. This fact has also been observed from the gender streamgraph shown in the previous subsection.
+
+```{r fig7, fig.width=9, fig.height=12, echo=FALSE}
+p1 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,47])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(70, 95), low="white", high="royalblue") + 
+          ggtitle("Male 1996") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p2 =  ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,53])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(70, 95), low="white", high="royalblue") + 
+          ggtitle("Male 2002") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p3 =  ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,59])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(70, 95), low="white", high="royalblue") + 
+          ggtitle("Male 2008") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p4 =  ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,66])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(70, 95), low="white", high="royalblue") + 
+          ggtitle("Male 2015") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p5 =  ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,67])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(5, 30), low="white", high="darkorange") + 
+          ggtitle("Female 1996") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p6 =  ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,73])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(5, 30), low="white", high="darkorange") + 
+          ggtitle("Female 2002") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p7 =  ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,79])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(5, 30), low="white", high="darkorange") + 
+          ggtitle("Female 2008") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p8 =  ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,86])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(5, 30), low="white", high="darkorange") + 
+          ggtitle("Female 2015") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+grid.arrange(p1,p5,p2,p6,p3,p7,p4,p8,nrow=4,ncol=2)
+```
+
+### Age
+
+The maps below show the log ratio of the abusers under 21 to those aged 21 or above, a higher value (green) indicates a higher percentage of younger (<21) drug abusers, while a lower value (black) indicates a higher percentage of older (>=21) abusers. Similar to gender, the drug abusers aged 21 or above outnumbers those below 21 by a fairly big margin, even though not as large as that of the males to females. Over the last two decades, the proportion of drug abusers under 21 ranges roughly from 2% to 50%, while those 21 or above occupies 50% to 98% percent of all drug abusers. One can observe that the proportion of those below 21 was increasing until 2008, after which it started declining drastically. However, there is a more interesting observation. It seems that more younger drug abusers are concentrated on the outskirts of Hong Kong, namely the Islands, Southern, and North districts, while the middle area of Hong Kong are predominantly occupied by older drug abusers.
+
+```{r fig8, fig.width=9, fig.height=7, echo=FALSE}
+p1 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,147])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(-3.7, 1), low="black", high="chartreuse") + 
+          ggtitle("1996") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p2 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,153])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(-3.7, 1), low="black", high="chartreuse") + 
+          ggtitle("2002") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p3 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,159])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(-3.7, 1), low="black", high="chartreuse") + 
+          ggtitle("2008") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p4 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,166])) + 
+          geom_polygon() + 
+          scale_fill_gradient(name="", limits=c(-3.7, 1), low="black", high="chartreuse") + 
+          ggtitle("2015") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+grid.arrange(p1,p2,p3,p4,nrow=2,ncol=2)
+```
+
+### Most common drug type
+
+As seen from the streamgraph, heroin has apparently been the most common drug type among the abusers in Hong Kong. Geographically, this phenomenon can also be observed from the maps below, which shows the most prevalent type of drug in each district. For example, in 2006, heroin is the most abused drug type in all but one district, the North, which "favours" ketamine instead. However, the situation starts to change as time moves on. After 2006, ketamine starts to gain more and more prevalence across different districts, reaching its peak in 2010, after which it began to decline. However, it never went back to the state it was in at the beginning of the timeline (which is 2006). The most intriguing change comes in 2014, when methamphetamine became the most prevalent drug type in two districts, the Islands and Tai Po. This is, again, an evidence that Heroin's dominance is declining over the last decade, while more and more psychotropic drugs are starting to take its place. It should be noted, however, that heroin is still the most common drug type in Hong Kong, despite its decline in recent years.
+
+```{r fig9, fig.width=9, fig.height=10, echo=FALSE}
+p1 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,167])) + 
+          geom_polygon() + 
+          scale_fill_manual(name="Drug", values=c("#F8766D", "#00BA38", "#619CFF")) + 
+          ggtitle("2006") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p2 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,169])) + 
+          geom_polygon() + 
+          scale_fill_manual(name="Drug", values=c("#F8766D", "#00BA38", "#619CFF")) + 
+          ggtitle("2008") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p3 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,171])) + 
+          geom_polygon() + 
+          scale_fill_manual(name="Drug", values=c("#F8766D", "#00BA38", "#619CFF")) + 
+          ggtitle("2010") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p4 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,172])) + 
+          geom_polygon() + 
+          scale_fill_manual(name="Drug", values=c("#F8766D", "#00BA38", "#619CFF")) + 
+          ggtitle("2011") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p5 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,174])) + 
+          geom_polygon() + 
+          scale_fill_manual(name="Drug", values=c("#F8766D", "#00BA38", "#619CFF")) + 
+          ggtitle("2013") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+p6 = ggplot(hk_drug_map, aes(long, lat, group=group, fill=hk_drug_map[,175])) + 
+          geom_polygon() + 
+          scale_fill_manual(name="Drug", values=c("#F8766D", "#00BA38", "#619CFF")) + 
+          ggtitle("2014") + 
+          xlab("") + 
+          ylab("") +
+          coord_fixed() +
+          theme(axis.ticks.x=element_blank(), axis.ticks.y=element_blank(), axis.text.x=element_blank(), axis.text.y=element_blank())
+grid.arrange(p1,p2,p3,p4,p5,p6,nrow=3,ncol=2)
+```
+
+Another interesting observation can be obtained by comparing this result with the age distribution: most heroin abusers are located in the middle area of Hong Kong, which is where the older drug abusers are concentrated; the younger drug abusers are distributed on the outskirts of Hong Kong, which is where psychotropic drugs are more prevalent. This is indeed a manifestation of the fact that psychotropic drug tend to be more common among younger abusers [@narcoticsdiv].
+
+# Conclusion
+
+Assuming the government statistics can reliably represent the real situation, we can conclude that the hybrid drug policy in Hong Kong has generally been effective, which is evidenced by the declining number of reported drug abusers since the mid 90s. In fact, the total number of drug abusers has been steadily declining ever since 1994, and in 2015 reached the lowest point of the past 30 years. In terms of the common types of drugs, we see an increase in the usage of psychotropic drugs such as ketamine and methamphetamine in recent years. However, heroin remains as the most abused drug type in Hong Kong, despite seeing a huge decrease in its prevalence among drug abusers over the last twenty years. Other observations from the streamgraphs include a slight increase in the proportion of female drug abusers, a relatively low educational level and a very high unemployment rate among the reported drug abusers. From the geographical map, we see that Kwun Tong overall has the highest number of abusers, whereas districts like Yau Tsim Mong and Sham Shui Po have the highest density of drug abusers in the local population. We also noticed that the outskirts of Hong Kong, including districts like the North, Southern and Islands, have a higher percentage of younger drug abusers. Furthermore, from the similarity between the distribution of young drug abusers and drug types like ketamine and methamphetamine (which are on the rise), we can infer that youth drug abuse in Hong Kong still poses a huge difficulty in the fight against drugs.
+
+Despite the patterns observed from the graphs, further studies need to be conducted to verify these observations, as well as to look into the reasons behind these phenomena. After all, the government data might not reflect the real situation. Recent studies show that the problem of hidden drug abuse is still a major concern in Hong Kong [@hidden]. This group of people, undiscovered and unreported, continues to pose a challenge for the Hong Kong government on its way to eradicate drug abuse. Due to the social stigma and discrimination against drug abuse, these people might be relunctant to actively seek out for assistance. Therefore, solving the problem of hidden drug abusers might be the most arduous task on the government's agenda in its war against drugs.
+
+# Acknowledgement
+
+This project is to fulfill a requirement of the course STAT3622 Data Visualization at the University of Hong Kong. We would like to thank Dr. Zhang Aijun for the precious guidance and support throughout the entire semester, as well as the tutor Mr. You Jia for all the assistance during the project. This project is also made possible with the R packages *Streamgraph*, *Shiny*, *ggplot2*, and *Plotly*.
+
+# References
